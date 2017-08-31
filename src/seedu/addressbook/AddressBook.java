@@ -10,8 +10,8 @@
 //import java.io.File;
 //import java.io.FileNotFoundException;
 //import java.io.IOException;
-import org.apache.xmlbeans.impl.xb.xsdschema.All;
-import org.jetbrains.uast.values.UBooleanConstant;
+//import org.apache.xmlbeans.impl.xb.xsdschema.All;
+//import org.jetbrains.uast.values.UBooleanConstant;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -846,13 +846,16 @@ public class AddressBook {
         /* Return sorted order */
         if(IsSort == true){
             //Traversing list through Iterator
-            Iterator itr=ALL_PERSONS.iterator();
-            while(itr.hasNext()){
-                
+            ArrayList<String[]> SORTED_PERSON = new ArrayList(ALL_PERSONS);
 
-            }
+            SORTED_PERSON.sort(
+                    (p1, p2)-> {
+                        int cmp = p1[0].compareTo(p2[0]);
+                        return cmp;
+                    }
+            );
 
-            return ALL_PERSONS;
+            return SORTED_PERSON;
         }
         /* Return unsorted order */
         return ALL_PERSONS;
