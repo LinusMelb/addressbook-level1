@@ -1,4 +1,4 @@
-package seedu.addressbook;
+ package seedu.addressbook;
 
 /*
  * NOTE : =============================================================
@@ -7,21 +7,18 @@ package seedu.addressbook;
  * ====================================================================
  */
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+//import java.io.File;
+//import java.io.FileNotFoundException;
+//import java.io.IOException;
+import org.apache.xmlbeans.impl.xb.xsdschema.All;
+import org.jetbrains.uast.values.UBooleanConstant;
+
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Scanner;
-import java.util.Set;
+import java.util.*;
 
 /*
  * NOTE : =============================================================
@@ -133,6 +130,12 @@ public class AddressBook {
     private static final String COMMAND_EXIT_DESC = "Exits the program.";
     private static final String COMMAND_EXIT_EXAMPLE = COMMAND_EXIT_WORD;
 
+    /* Added sort command here */
+    /* List all person in alphabetic order */
+    private static final String COMMAND_SORT_WORD = "sort";
+    private static final String COMMAND_SORT_DESC = "Sort all persons";
+    private static final String COMMAND_SORT_EXAMPLE = COMMAND_EXIT_WORD;
+
     private static final String DIVIDER = "===================================================";
 
 
@@ -183,17 +186,22 @@ public class AddressBook {
      */
     private static final ArrayList<String[]> ALL_PERSONS = new ArrayList<>();
 
+    /* Whether sort list or not based on alphabetic order */
+    private static Boolean IsSort = false;
+
     /**
      * Stores the most recent list of persons shown to the user as a result of a user command.
      * This is a subset of the full list. Deleting persons in the pull list does not delete
      * those persons from this list.
      */
-    private static ArrayList<String[]> latestPersonListingView = getAllPersonsInAddressBook(); // initial view is of all
+    private static ArrayList<String[]> latestPersonListingView = getAllPersonsInAddressBook(IsSort); // initial view is of all
 
     /**
      * The path to the file used for storing person data.
      */
     private static String storageFilePath;
+
+
 
     /*
      * NOTE : =============================================================
@@ -210,10 +218,16 @@ public class AddressBook {
         showWelcomeMessage();
         processProgramArgs(args);
         loadDataFromStorage();
+
+        /* Continue to execute program until user input 'exit' command */
         while (true) {
+            /* Get input from user */
             String userCommand = getUserInput();
+            /* Echo what command user typed */
             echoUserCommand(userCommand);
+            /* Get the feedback after execute this user command */
             String feedback = executeCommand(userCommand);
+            /* Show user results */
             showResultToUser(feedback);
         }
     }
@@ -257,6 +271,8 @@ public class AddressBook {
      * @param args full program arguments passed to application main method
      */
     private static void processProgramArgs(String[] args) {
+
+       /* Two many parameters */
         if (args.length >= 2) {
             showToUser(MESSAGE_INVALID_PROGRAM_ARGS);
             exitProgram();
@@ -269,6 +285,7 @@ public class AddressBook {
         if(args.length == 0) {
             setupDefaultFileForStorage();
         }
+
     }
 
     /**
@@ -369,22 +386,25 @@ public class AddressBook {
         final String commandType = commandTypeAndParams[0];
         final String commandArgs = commandTypeAndParams[1];
         switch (commandType) {
-        case COMMAND_ADD_WORD:
-            return executeAddPerson(commandArgs);
-        case COMMAND_FIND_WORD:
-            return executeFindPersons(commandArgs);
-        case COMMAND_LIST_WORD:
-            return executeListAllPersonsInAddressBook();
-        case COMMAND_DELETE_WORD:
-            return executeDeletePerson(commandArgs);
-        case COMMAND_CLEAR_WORD:
-            return executeClearAddressBook();
-        case COMMAND_HELP_WORD:
-            return getUsageInfoForAllCommands();
-        case COMMAND_EXIT_WORD:
-            executeExitProgramRequest();
-        default:
-            return getMessageForInvalidCommandInput(commandType, getUsageInfoForAllCommands());
+            case COMMAND_SORT_WORD:
+                /* Sort all persons and display */
+                return executeSortPerson(commandArgs);
+            case COMMAND_ADD_WORD:
+                return executeAddPerson(commandArgs);
+            case COMMAND_FIND_WORD:
+                return executeFindPersons(commandArgs);
+            case COMMAND_LIST_WORD:
+                return executeListAllPersonsInAddressBook();
+            case COMMAND_DELETE_WORD:
+                return executeDeletePerson(commandArgs);
+            case COMMAND_CLEAR_WORD:
+                return executeClearAddressBook();
+            case COMMAND_HELP_WORD:
+                return getUsageInfoForAllCommands();
+            case COMMAND_EXIT_WORD:
+                executeExitProgramRequest();
+            default:
+                return getMessageForInvalidCommandInput(commandType, getUsageInfoForAllCommands());
         }
     }
 
@@ -430,6 +450,16 @@ public class AddressBook {
         return getMessageForSuccessfulAddPerson(personToAdd);
     }
 
+
+    private static String executeSortPerson(String commandArgs) {
+
+        ArrayList<String[]> toBeDisplayed = getAllPersonsInAddressBook(true);
+        showToUser(toBeDisplayed);
+        return getMessageForPersonsDisplayedSummary(toBeDisplayed);
+
+    }
+
+
     /**
      * Constructs a feedback message for a successful add person command execution.
      *
@@ -473,7 +503,7 @@ public class AddressBook {
      * @return set of keywords as specified by args
      */
     private static Set<String> extractKeywordsFromFindPersonArgs(String findPersonCommandArgs) {
-        return new HashSet<>(splitByWhitespace(findPersonCommandArgs.trim()));
+        return new HashSet<String>(splitByWhitespace(findPersonCommandArgs.trim()));
     }
 
     /**
@@ -484,9 +514,17 @@ public class AddressBook {
      */
     private static ArrayList<String[]> getPersonsWithNameContainingAnyKeyword(Collection<String> keywords) {
         final ArrayList<String[]> matchedPersons = new ArrayList<>();
-        for (String[] person : getAllPersonsInAddressBook()) {
-            final Set<String> wordsInName = new HashSet<>(splitByWhitespace(getNameFromPerson(person)));
-            if (!Collections.disjoint(wordsInName, keywords)) {
+        for (String[] person : getAllPersonsInAddressBook(IsSort)) {
+            Set<String> wordsInName = new HashSet<String>(splitByWhitespace(getNameFromPerson(person)));
+
+
+            ArrayList key = new ArrayList();
+            /* Convert all string in set to lowercase */
+            for (String s: wordsInName){
+                key.add(s.toLowerCase());
+            }
+
+            if (!Collections.disjoint(key, keywords)) {
                 matchedPersons.add(person);
             }
         }
@@ -574,7 +612,7 @@ public class AddressBook {
      * @return feedback display message for the operation result
      */
     private static String executeListAllPersonsInAddressBook() {
-        ArrayList<String[]> toBeDisplayed = getAllPersonsInAddressBook();
+        ArrayList<String[]> toBeDisplayed = getAllPersonsInAddressBook(IsSort);
         showToUser(toBeDisplayed);
         return getMessageForPersonsDisplayedSummary(toBeDisplayed);
     }
@@ -744,7 +782,7 @@ public class AddressBook {
     private static ArrayList<String> getLinesInFile(String filePath) {
         ArrayList<String> lines = null;
         try {
-            lines = new ArrayList<>(Files.readAllLines(Paths.get(filePath)));
+            lines = new ArrayList<String>(Files.readAllLines(Paths.get(filePath)));
         } catch (FileNotFoundException fnfe) {
             showToUser(String.format(MESSAGE_ERROR_MISSING_STORAGE_FILE, filePath));
             exitProgram();
@@ -784,7 +822,7 @@ public class AddressBook {
      */
     private static void addPersonToAddressBook(String[] person) {
         ALL_PERSONS.add(person);
-        savePersonsToFile(getAllPersonsInAddressBook(), storageFilePath);
+        savePersonsToFile(getAllPersonsInAddressBook(IsSort), storageFilePath);
     }
 
     /**
@@ -796,7 +834,7 @@ public class AddressBook {
     private static boolean deletePersonFromAddressBook(String[] exactPerson) {
         final boolean changed = ALL_PERSONS.remove(exactPerson);
         if (changed) {
-            savePersonsToFile(getAllPersonsInAddressBook(), storageFilePath);
+            savePersonsToFile(getAllPersonsInAddressBook(IsSort), storageFilePath);
         }
         return changed;
     }
@@ -804,7 +842,19 @@ public class AddressBook {
     /**
      * Returns all persons in the address book
      */
-    private static ArrayList<String[]> getAllPersonsInAddressBook() {
+    private static ArrayList<String[]> getAllPersonsInAddressBook(boolean IsSort) {
+        /* Return sorted order */
+        if(IsSort == true){
+            //Traversing list through Iterator
+            Iterator itr=ALL_PERSONS.iterator();
+            while(itr.hasNext()){
+                
+
+            }
+
+            return ALL_PERSONS;
+        }
+        /* Return unsorted order */
         return ALL_PERSONS;
     }
 
@@ -813,7 +863,7 @@ public class AddressBook {
      */
     private static void clearAddressBook() {
         ALL_PERSONS.clear();
-        savePersonsToFile(getAllPersonsInAddressBook(), storageFilePath);
+        savePersonsToFile(getAllPersonsInAddressBook(IsSort), storageFilePath);
     }
 
     /**
@@ -894,7 +944,7 @@ public class AddressBook {
      * @return encoded strings
      */
     private static ArrayList<String> encodePersonsToStrings(ArrayList<String[]> persons) {
-        final ArrayList<String> encoded = new ArrayList<>();
+        final ArrayList<String> encoded = new ArrayList<String>();
         for (String[] person : persons) {
             encoded.add(encodePersonToString(person));
         }
@@ -1161,7 +1211,7 @@ public class AddressBook {
      * @return split by whitespace
      */
     private static ArrayList<String> splitByWhitespace(String toSplit) {
-        return new ArrayList<>(Arrays.asList(toSplit.trim().split("\\s+")));
+        return new ArrayList<String>(Arrays.asList(toSplit.trim().split("\\s+")));
     }
 
 }
